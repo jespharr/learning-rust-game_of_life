@@ -1,5 +1,7 @@
-use crate::game_engine::{GameEvent, GameState};
-use crate::grid::{self, Grid, Pattern};
+use crate::{
+    game_engine::{GameEvent, GameState},
+    grid::{self, Grid, Pattern},
+};
 
 use std::fmt;
 use std::io::{stdin, stdout, Write};
@@ -10,6 +12,10 @@ use termion::input::{MouseTerminal, TermRead};
 use termion::raw::IntoRawMode;
 use termion::screen::IntoAlternateScreen;
 use termion::{clear, color, cursor};
+
+const UI_WIDTH: usize = grid::WIDTH * 2;
+const CONTROLS_WIDTH: usize = 1 + 12 + 2 + 6 + 16 + 2 + 14;
+const CONTROLS_FILLER_WIDTH: usize = UI_WIDTH - CONTROLS_WIDTH;
 
 pub enum InputEvent {
     GridClicked(Coordinates),
@@ -38,7 +44,6 @@ pub struct Ui {
 impl Ui {
     pub fn new() -> Self {
         let mut out = stdout().into_raw_mode().unwrap().into_alternate_screen().unwrap();
-
         writeln!(out, "{}", cursor::Hide).unwrap();
 
         Ui {
@@ -47,15 +52,13 @@ impl Ui {
     }
 
     pub fn render(&mut self, game_state: &GameState) {
-        write!(self.out, "{}", cursor::Goto(1, 1)).unwrap();
-        write!(self.out, "\r\n").unwrap();
+        write!(self.out, "{}\r\n", cursor::Goto(1, 1)).unwrap();
         self.render_grid(&game_state.grid);
-        write!(self.out, "{}", clear::UntilNewline).unwrap();
-        write!(self.out, "\r\n").unwrap();
         self.render_info(game_state);
-        write!(self.out, "{}", clear::UntilNewline).unwrap();
         write!(self.out, "\r\n").unwrap();
         self.render_controls(game_state);
+        write!(self.out, "\r\n").unwrap();
+        self.render_preset_options();
         write!(self.out, "{}", clear::AfterCursor).unwrap();
         self.out.flush().unwrap();
     }
@@ -89,30 +92,62 @@ impl Ui {
     }
 
     fn render_info(&mut self, game_state: &GameState) {
-        let gen = game_state.generation;
-        write!(self.out, "generation: {gen}   ").unwrap();
-
-        let speed = game_state.update_frequence;
-        write!(self.out, "speed: {speed}x").unwrap();
+        let gen = format!("generation: {}", game_state.generation);
+        let speed = format!("speed: {}x", game_state.update_frequence);
+        write!(self.out, " {gen}{speed:>0$}\r\n", UI_WIDTH - gen.len() - 1).unwrap();
     }
 
     fn render_controls(&mut self, game_state: &GameState) {
-        write!(self.out, "q = quit   ").unwrap();
+        let default_color = color::Fg(color::Reset);
+        let inactive_color = color::Fg(color::LightBlack);
+        let hotkey_color = color::Fg(color::Cyan);
+        let filler = format!("{0:1$}", " ", CONTROLS_FILLER_WIDTH);
+
+        write!(self.out, " ").unwrap();
+
         if game_state.paused {
-            write!(self.out, "space = resume   ").unwrap();
+            if game_state.generation == 0 {
+                write!(self.out, "{hotkey_color}space{default_color} start ").unwrap();
+            } else {
+                write!(self.out, "{hotkey_color}space{default_color} resume").unwrap();
+            }
         } else {
-            write!(self.out, "space = pause    ").unwrap();
+            write!(self.out, "{hotkey_color}space{default_color} pause ").unwrap();
         }
+
+        write!(self.out, "  ").unwrap();
+        write!(self.out, "{hotkey_color}q{default_color} quit").unwrap();
+        write!(self.out, "{filler}").unwrap();
+
         if game_state.is_max_update_frequence {
-            write!(self.out, "                     ").unwrap();
+            write!(self.out, "{inactive_color}+ increase speed{default_color}").unwrap();
         } else {
-            write!(self.out, "+ = increase speed   ").unwrap();
+            write!(self.out, "{hotkey_color}+{default_color} increase speed").unwrap();
         }
+
+        write!(self.out, "  ").unwrap();
+
         if game_state.is_min_update_frequence {
-            write!(self.out, "                   ").unwrap();
+            write!(self.out, "{inactive_color}- reduce speed{default_color}").unwrap();
         } else {
-            write!(self.out, "- = reduce speed   ").unwrap();
+            write!(self.out, "{hotkey_color}-{default_color} reduce speed").unwrap();
         }
+
+        write!(self.out, "\r\n").unwrap();
+    }
+
+    fn render_preset_options(&mut self) {
+        let default_color = color::Fg(color::Reset);
+        let default_len = default_color.to_string().len();
+        let hotkey_color = color::Fg(color::Cyan);
+        let hotkey_len = hotkey_color.to_string().len();
+        let left_pad = format!("{:1$}", " ", hotkey_len + default_len);
+        let f1 = format!("{left_pad}{hotkey_color}F1{default_color} Reset (random)             ");
+        let f2 = format!("{left_pad}{hotkey_color}F2{default_color} Preset: Gosper's glider gun");
+
+        write!(self.out, " {:^1$}", f1, UI_WIDTH).unwrap();
+        write!(self.out, "\r\n").unwrap();
+        write!(self.out, " {:^1$}", f2, UI_WIDTH).unwrap();
     }
 }
 
