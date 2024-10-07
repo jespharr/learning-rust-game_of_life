@@ -37,11 +37,7 @@ pub struct Ui {
 
 impl Ui {
     pub fn new() -> Self {
-        let mut out = stdout()
-            .into_raw_mode()
-            .unwrap()
-            .into_alternate_screen()
-            .unwrap();
+        let mut out = stdout().into_raw_mode().unwrap().into_alternate_screen().unwrap();
 
         writeln!(out, "{}", cursor::Hide).unwrap();
 
@@ -120,10 +116,7 @@ impl Ui {
     }
 }
 
-pub fn start_ui_renderer(
-    initial_game_state: &GameState,
-    event_stream: Receiver<GameEvent>,
-) -> JoinHandle<()> {
+pub fn start_ui_renderer(initial_game_state: &GameState, event_stream: Receiver<GameEvent>) -> JoinHandle<()> {
     let mut ui = Ui::new();
     ui.render(initial_game_state);
 

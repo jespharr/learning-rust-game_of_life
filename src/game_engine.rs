@@ -36,69 +36,61 @@ impl GameState {
         }
     }
 
-    fn adjust_update_frequence(&mut self, by: f32) {
+    fn try_increment_update_frequence(&mut self) -> bool {
+        if self.is_max_update_frequence {
+            false
+        } else if self.update_frequence < 1.0 {
+            self.adjust_update_frequence(0.2);
+            true
+        } else {
+            self.adjust_update_frequence(0.5);
+            true
+        }
+    }
+
+    fn try_decrement_update_frequence(&mut self) -> bool {
+        if self.is_min_update_frequence {
+            false
+        } else if self.update_frequence <= 1.0 {
+            self.adjust_update_frequence(-0.2);
+            true
+        } else {
+            self.adjust_update_frequence(-0.5);
+            true
+        }
+    }
+
+    fn adjust_update_frequence(&mut self, by: f32) -> f32 {
         let new_val = self.update_frequence + by;
         self.update_frequence = (new_val * 10.0).round() / 10.0;
+        self.is_min_update_frequence = self.update_frequence <= MIN_UPDATE_FREQUENCE;
+        self.is_max_update_frequence = self.update_frequence >= MAX_UPDATE_FREQUENCE;
+        self.update_frequence
     }
 }
 
 pub fn start_loop(
     initial_game_state: GameState,
-    tick_rate: u32,
+    ticks_per_sec: u32,
     input_stream: Receiver<InputEvent>,
     event_stream: Sender<GameEvent>,
 ) -> JoinHandle<()> {
-    let sleep_duration = Duration::from_millis(1000 / tick_rate as u64);
+    let sleep_duration = Duration::from_millis(1000 / ticks_per_sec as u64);
     let mut tick_counter = 0;
     let mut game_state = initial_game_state;
-    let mut ticks_per_update = (tick_rate as f32 / game_state.update_frequence) as u32;
+    let mut ticks_per_update = calc_ticks_per_update(ticks_per_sec, &game_state.update_frequence);
 
     spawn(move || loop {
         // check for input and handle it if there is any
         let mut state_updated = match input_stream.try_recv() {
             Ok(event) => match event {
-                InputEvent::GridClicked(c) => {
-                    game_state.grid.toggle_cell(c.x, c.y);
-                    true
-                }
+                InputEvent::GridClicked(c) => game_state.grid.try_toggle_cell(c.x, c.y),
                 InputEvent::TogglePause => {
                     game_state.paused = !game_state.paused;
                     true
                 }
-                InputEvent::IncrementUpdateFrequence => {
-                    let amount = if game_state.update_frequence >= MAX_UPDATE_FREQUENCE {
-                        0.0
-                    } else if game_state.update_frequence < 1.0 {
-                        0.2
-                    } else {
-                        0.5
-                    };
-
-                    if amount != 0.0 {
-                        game_state.adjust_update_frequence(amount);
-                        ticks_per_update = (tick_rate as f32 / game_state.update_frequence) as u32;
-                        true
-                    } else {
-                        false
-                    }
-                }
-                InputEvent::DecrementUpdateFrequence => {
-                    let amount = if game_state.update_frequence <= MIN_UPDATE_FREQUENCE {
-                        0.0
-                    } else if game_state.update_frequence <= 1.0 {
-                        -0.2
-                    } else {
-                        -0.5
-                    };
-
-                    if amount != 0.0 {
-                        game_state.adjust_update_frequence(amount);
-                        ticks_per_update = (tick_rate as f32 / game_state.update_frequence) as u32;
-                        true
-                    } else {
-                        false
-                    }
-                }
+                InputEvent::IncrementUpdateFrequence => game_state.try_increment_update_frequence(),
+                InputEvent::DecrementUpdateFrequence => game_state.try_decrement_update_frequence(),
                 InputEvent::Reset(pattern) => {
                     game_state.grid.reset(pattern);
                     true
@@ -112,15 +104,16 @@ pub fn start_loop(
                 event_stream.send(GameEvent::Quit).unwrap();
                 return;
             }
-            _ => false,
+            Err(TryRecvError::Empty) => false,
         };
 
-        // go to next generation if it's time
+        // handle tick if not paused
         if !game_state.paused {
+            // advance to next generation if it's time
             if tick_counter >= ticks_per_update {
                 let update_count = game_state.grid.next_generation();
                 if update_count == 0 {
-                    // pause game if we're "stuck"
+                    // automatically pause game if we're "stuck"
                     game_state.paused = true;
                 }
                 game_state.generation += 1;
@@ -132,11 +125,14 @@ pub fn start_loop(
         }
 
         if state_updated {
-            event_stream
-                .send(GameEvent::StateUpdated(game_state.clone()))
-                .unwrap();
+            event_stream.send(GameEvent::StateUpdated(game_state.clone())).unwrap();
+            ticks_per_update = calc_ticks_per_update(ticks_per_sec, &game_state.update_frequence);
         }
 
         sleep(sleep_duration);
     })
+}
+
+fn calc_ticks_per_update(ticks_per_sec: u32, update_frequence: &f32) -> u32 {
+    (ticks_per_sec as f32 / update_frequence).round() as u32
 }

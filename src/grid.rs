@@ -94,8 +94,8 @@ impl Grid {
         count
     }
 
-    pub fn toggle_cell(&mut self, x: usize, y: usize) -> bool {
-        if x >= WIDTH || y > HEIGHT {
+    pub fn try_toggle_cell(&mut self, x: usize, y: usize) -> bool {
+        if x >= WIDTH || y >= HEIGHT {
             false
         } else {
             self.cells[y][x] = !self.cells[y][x];
