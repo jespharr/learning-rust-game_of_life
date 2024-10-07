@@ -1,0 +1,5 @@
+My girlfriend told me to implement [Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) as a first rust project, so here we are.
+
+I had only read chapters 1-6 of [The Book](https://doc.rust-lang.org/book/title-page.html) and finished 40/94 [rustlings](https://github.com/rust-lang/rustlings) when I started, and in hindsight I should have probably started with something that didn't require multi-threading and saved this for my second project after finishing chapter 12 or so. 
+
+When I first started implementing the second thread to handle inputs I was wrapping the grid in a mutex+Arc to share it between the threads. I really hated that design because it forced the threads to constantly sync and the code just seemed so unnecessarily complex. I was happy to find out about [channels](https://doc.rust-lang.org/rust-by-example/std_misc/channels.html) which allowed for this much simpler and more efficient design where the threads can subscribe to changes asynchronously instead.
