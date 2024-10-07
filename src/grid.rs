@@ -1,41 +1,25 @@
-pub const GRID_WIDTH: usize = 50;
-pub const GRID_HEIGHT: usize = 30;
+pub const WIDTH: usize = 38;
+pub const HEIGHT: usize = 30;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Grid {
-    pub cells: [[bool; GRID_WIDTH]; GRID_HEIGHT],
+    pub cells: [[bool; WIDTH]; HEIGHT],
+}
+
+pub enum Pattern {
+    Random(usize),
+    GosperGliderGun,
 }
 
 impl Grid {
-    pub fn new(initial_live_count: u8) -> Self {
-        let mut grid = [[false; GRID_WIDTH]; GRID_HEIGHT];
-        let mut x = GRID_WIDTH / 2;
-        let mut y = GRID_HEIGHT / 2;
-
-        for i in 1..initial_live_count {
-            loop {
-                if i % 2 == 0 {
-                    if rand::random() {
-                        x += 1;
-                    } else {
-                        x -= 1;
-                    }
-                } else {
-                    if rand::random() {
-                        y += 1;
-                    } else {
-                        y -= 1;
-                    }
-                }
-
-                if grid[y][x] == false {
-                    grid[y][x] = true;
-                    break;
-                }
-            }
+    pub fn new(pattern: Pattern) -> Self {
+        Grid {
+            cells: generate_pattern(pattern),
         }
+    }
 
-        Grid { cells: grid }
+    pub fn reset(&mut self, pattern: Pattern) {
+        self.cells = generate_pattern(pattern);
     }
 
     pub fn next_generation(&mut self) -> usize {
@@ -66,9 +50,9 @@ impl Grid {
 
     pub fn count_living_neighbours(&self, x: usize, y: usize) -> u8 {
         let is_on_left_edge = x == 0;
-        let is_on_right_edge = x == GRID_WIDTH - 1;
+        let is_on_right_edge = x == WIDTH - 1;
         let is_on_top_edge = y == 0;
-        let is_on_bottom_edge = y == GRID_HEIGHT - 1;
+        let is_on_bottom_edge = y == HEIGHT - 1;
         let mut count = 0;
 
         if !is_on_left_edge {
@@ -111,7 +95,7 @@ impl Grid {
     }
 
     pub fn toggle_cell(&mut self, x: usize, y: usize) -> bool {
-        if x >= GRID_WIDTH || y > GRID_HEIGHT {
+        if x >= WIDTH || y > HEIGHT {
             false
         } else {
             self.cells[y][x] = !self.cells[y][x];
@@ -122,4 +106,92 @@ impl Grid {
     pub fn is_alive(&self, x: usize, y: usize) -> bool {
         self.cells[y][x]
     }
+}
+
+fn generate_pattern(pattern: Pattern) -> [[bool; WIDTH]; HEIGHT] {
+    match pattern {
+        Pattern::Random(alive_count) => generate_random(alive_count),
+        Pattern::GosperGliderGun => generate_gosper_glider_gun(),
+    }
+}
+
+fn generate_random(alive_count: usize) -> [[bool; WIDTH]; HEIGHT] {
+    let mut grid = [[false; WIDTH]; HEIGHT];
+    let mut x = WIDTH / 2;
+    let mut y = HEIGHT / 2;
+
+    for i in 1..alive_count {
+        loop {
+            if i % 2 == 0 {
+                if rand::random() {
+                    x += 1;
+                } else {
+                    x -= 1;
+                }
+            } else {
+                if rand::random() {
+                    y += 1;
+                } else {
+                    y -= 1;
+                }
+            }
+
+            if grid[y][x] == false {
+                grid[y][x] = true;
+                break;
+            }
+        }
+    }
+
+    grid
+}
+
+fn generate_gosper_glider_gun() -> [[bool; WIDTH]; HEIGHT] {
+    let mut grid = [[false; WIDTH]; HEIGHT];
+    add_block(&mut grid, 1, 7);
+    add_gosper_glider_gun_1(&mut grid, 11, 5);
+    add_gosper_glider_gun_2(&mut grid, WIDTH - 17, 3);
+    add_block(&mut grid, WIDTH - 3, 5);
+    grid
+}
+
+fn add_block(grid: &mut [[bool; WIDTH]; HEIGHT], x: usize, y: usize) {
+    grid[y + 0][x + 0] = true;
+    grid[y + 0][x + 1] = true;
+    grid[y + 1][x + 0] = true;
+    grid[y + 1][x + 1] = true;
+}
+
+fn add_gosper_glider_gun_1(grid: &mut [[bool; WIDTH]; HEIGHT], x: usize, y: usize) {
+    grid[y + 0][x + 2] = true;
+    grid[y + 0][x + 3] = true;
+    grid[y + 1][x + 1] = true;
+    grid[y + 1][x + 5] = true;
+    grid[y + 2][x + 0] = true;
+    grid[y + 2][x + 6] = true;
+    grid[y + 3][x + 0] = true;
+    grid[y + 3][x + 4] = true;
+    grid[y + 3][x + 6] = true;
+    grid[y + 3][x + 7] = true;
+    grid[y + 4][x + 0] = true;
+    grid[y + 4][x + 6] = true;
+    grid[y + 5][x + 1] = true;
+    grid[y + 5][x + 5] = true;
+    grid[y + 6][x + 2] = true;
+    grid[y + 6][x + 3] = true;
+}
+
+fn add_gosper_glider_gun_2(grid: &mut [[bool; WIDTH]; HEIGHT], x: usize, y: usize) {
+    grid[y + 0][x + 4] = true;
+    grid[y + 1][x + 2] = true;
+    grid[y + 1][x + 4] = true;
+    grid[y + 2][x + 0] = true;
+    grid[y + 2][x + 1] = true;
+    grid[y + 3][x + 0] = true;
+    grid[y + 3][x + 1] = true;
+    grid[y + 4][x + 0] = true;
+    grid[y + 4][x + 1] = true;
+    grid[y + 5][x + 2] = true;
+    grid[y + 5][x + 4] = true;
+    grid[y + 6][x + 4] = true;
 }

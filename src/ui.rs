@@ -1,5 +1,5 @@
 use crate::game_engine::{GameEvent, GameState};
-use crate::grid::{self, Grid};
+use crate::grid::{self, Grid, Pattern};
 
 use std::fmt;
 use std::io::{stdin, stdout, Write};
@@ -16,6 +16,7 @@ pub enum InputEvent {
     TogglePause,
     IncrementUpdateFrequence,
     DecrementUpdateFrequence,
+    Reset(Pattern),
     Quit,
 }
 
@@ -65,15 +66,26 @@ impl Ui {
 
     fn render_grid(&mut self, grid: &Grid) {
         let default_color = color::Fg(color::Reset);
-        let alive_color = color::Fg(color::Cyan);
+        let alive_color = color::Fg(color::LightCyan);
 
-        for (y, row) in grid.cells.iter().enumerate() {
-            for (x, alive) in row.iter().enumerate() {
+        // for (y, row) in grid.cells.iter().enumerate() {
+        //     for (x, alive) in row.iter().enumerate() {
+        //         if *alive {
+        //             let count = grid.count_living_neighbours(x, y);
+        //             write!(self.out, "{alive_color} {count}").unwrap();
+        //         } else {
+        //             write!(self.out, "{default_color} -").unwrap();
+        //         }
+        //     }
+        //     write!(self.out, "\r\n").unwrap();
+        // }
+
+        for row in grid.cells.iter() {
+            for alive in row.iter() {
                 if *alive {
-                    let count = grid.count_living_neighbours(x, y);
-                    write!(self.out, "{alive_color} {count}").unwrap();
+                    write!(self.out, "{alive_color} ■").unwrap();
                 } else {
-                    write!(self.out, "{default_color} 0").unwrap();
+                    write!(self.out, "{default_color} □").unwrap();
                 }
             }
             write!(self.out, "\r\n").unwrap();
@@ -150,6 +162,8 @@ fn translate_to_input_event(event: Event) -> Option<InputEvent> {
             }
         }
         Event::Key(key) => match key {
+            Key::F(1) => Some(InputEvent::Reset(Pattern::Random(10))),
+            Key::F(2) => Some(InputEvent::Reset(Pattern::GosperGliderGun)),
             Key::Char(' ') => Some(InputEvent::TogglePause),
             Key::Char('+') => Some(InputEvent::IncrementUpdateFrequence),
             Key::Char('-') => Some(InputEvent::DecrementUpdateFrequence),
@@ -170,7 +184,7 @@ fn translate_to_grid_coordinates(x: u16, y: u16) -> Option<Coordinates> {
         None
     } else {
         let x = x / 2;
-        if x < grid::GRID_WIDTH && y < grid::GRID_HEIGHT {
+        if x < grid::WIDTH && y < grid::HEIGHT {
             Some(Coordinates { x, y })
         } else {
             // out of bounds

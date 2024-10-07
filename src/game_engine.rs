@@ -99,6 +99,10 @@ pub fn start_loop(
                         false
                     }
                 }
+                InputEvent::Reset(pattern) => {
+                    game_state.grid.reset(pattern);
+                    true
+                }
                 InputEvent::Quit => {
                     event_stream.send(GameEvent::Quit).unwrap();
                     return;
@@ -128,7 +132,9 @@ pub fn start_loop(
         }
 
         if state_updated {
-            event_stream.send(GameEvent::StateUpdated(game_state.clone())).unwrap();
+            event_stream
+                .send(GameEvent::StateUpdated(game_state.clone()))
+                .unwrap();
         }
 
         sleep(sleep_duration);
